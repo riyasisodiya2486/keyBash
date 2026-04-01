@@ -134,32 +134,6 @@ export default function SignInPage() {
               </p>
             </div>
 
-            <div className="mt-8 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-[1.35rem] border border-white/8 bg-[#f5efe6] p-4 text-[#16120d]">
-                <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#8f816f]">
-                  Sessions
-                </p>
-                <p className="mt-3 text-3xl font-semibold tracking-[-0.05em]">
-                  24k
-                </p>
-              </div>
-              <div className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-4">
-                <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#8f816f]">
-                  Best pace
-                </p>
-                <p className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[#f5efe6]">
-                  147
-                </p>
-              </div>
-              <div className="rounded-[1.35rem] border border-white/8 bg-white/[0.04] p-4">
-                <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#8f816f]">
-                  Live rank
-                </p>
-                <p className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[#f5efe6]">
-                  #08
-                </p>
-              </div>
-            </div>
           </section>
 
           <section className="relative overflow-hidden rounded-[2.3rem] border border-white/8 bg-[linear-gradient(180deg,rgba(245,239,230,0.08),rgba(255,255,255,0.03))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] backdrop-blur-2xl sm:p-8">
