@@ -80,7 +80,7 @@ export function Navbar() {
           className="ml-auto flex shrink-0 items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] p-1.5"
         >
           <Link
-            href="#"
+            href="/sign-in"
             className="hidden h-11 items-center rounded-full px-4 font-mono text-[11px] uppercase tracking-[0.24em] text-[#b8aa98] transition hover:bg-white/[0.06] hover:text-[#f5efe6] sm:inline-flex"
           >
             Sign in

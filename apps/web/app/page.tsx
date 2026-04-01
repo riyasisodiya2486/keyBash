@@ -94,6 +94,12 @@ export default function Home() {
 
             <div className="mt-10 flex flex-col gap-4 sm:flex-row">
               <Link
+                href="/sign-in"
+                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.05] px-6 py-4 font-mono text-[11px] uppercase tracking-[0.26em] text-[#f5efe6] transition hover:bg-white/[0.09]"
+              >
+                Sign in
+              </Link>
+              <Link
                 href="#"
                 className="inline-flex items-center justify-center rounded-full bg-[#f5efe6] px-6 py-4 font-mono text-[11px] uppercase tracking-[0.26em] text-[#16120d] transition hover:bg-[#fffaf2]"
               >
