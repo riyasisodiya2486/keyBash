@@ -96,12 +96,43 @@ const wordPools = {
   ],
 } as const;
 
+const codePools = {
+  easy: [
+    "const score = 42;",
+    "let speed = wordsTyped / minutes;",
+    "if (ready) return startTest();",
+    "for (const key of keys) focus(key);",
+    "const theme = 'ember';",
+    "type Mode = 'words' | 'code';",
+  ],
+  medium: [
+    "const result = entries.filter((item) => item.active).map((item) => item.label);",
+    "function formatWpm(value: number) { return `${Math.round(value)} wpm`; }",
+    "const nextUser = profile?.name ?? 'guest';",
+    "setSession((current) => ({ ...current, streak: current.streak + 1 }));",
+    "const visibleRows = rows.slice(0, limit).sort((a, b) => a.rank - b.rank);",
+  ],
+  hard: [
+    "const payload = await fetch('/api/runs').then((response) => response.json());",
+    "export function calculateAccuracy(correct: number, typed: number): number { return typed ? Math.round((correct / typed) * 100) : 100; }",
+    "const grouped = snippets.reduce<Record<string, number>>((acc, item) => ({ ...acc, [item.language]: (acc[item.language] ?? 0) + 1 }), {});",
+    "try { await saveRun(stats); } catch (error) { console.error('save failed', error); }",
+  ],
+} as const;
+
 const durationOptions = [15, 30, 60] as const;
 const difficultyOptions = ["easy", "medium", "hard"] as const;
+const practiceModes = ["words", "code"] as const;
 
 type Difficulty = (typeof difficultyOptions)[number];
+type PracticeMode = (typeof practiceModes)[number];
 
-function buildPrompt(level: Difficulty) {
+function buildPrompt(level: Difficulty, mode: PracticeMode) {
+  if (mode === "code") {
+    const source = codePools[level];
+    return source.join(" ");
+  }
+
   const source = wordPools[level];
   const words: string[] = [];
 
@@ -117,9 +148,10 @@ function countTypedWords(value: string) {
 }
 
 export default function TypingBox() {
+  const [practiceMode, setPracticeMode] = useState<PracticeMode>("words");
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
   const [duration, setDuration] = useState<15 | 30 | 60>(30);
-  const [prompt, setPrompt] = useState(() => buildPrompt("easy"));
+  const [prompt, setPrompt] = useState(() => buildPrompt("easy", "words"));
   const [typedValue, setTypedValue] = useState("");
   const [timeLeft, setTimeLeft] = useState(30);
   const [hasStarted, setHasStarted] = useState(false);
@@ -235,7 +267,21 @@ export default function TypingBox() {
       clearInterval(intervalRef.current);
     }
 
-    setPrompt(buildPrompt(difficulty));
+    setPrompt(buildPrompt(difficulty, practiceMode));
+    setTypedValue("");
+    setTimeLeft(duration);
+    setHasStarted(false);
+    setIsComplete(false);
+    ghostInputRef.current?.focus();
+  };
+
+  const handlePracticeModeChange = (nextMode: PracticeMode) => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    setPracticeMode(nextMode);
+    setPrompt(buildPrompt(difficulty, nextMode));
     setTypedValue("");
     setTimeLeft(duration);
     setHasStarted(false);
@@ -249,7 +295,7 @@ export default function TypingBox() {
     }
 
     setDifficulty(nextDifficulty);
-    setPrompt(buildPrompt(nextDifficulty));
+    setPrompt(buildPrompt(nextDifficulty, practiceMode));
     setTypedValue("");
     setTimeLeft(duration);
     setHasStarted(false);
@@ -263,7 +309,7 @@ export default function TypingBox() {
     }
 
     setDuration(nextDuration);
-    setPrompt(buildPrompt(difficulty));
+    setPrompt(buildPrompt(difficulty, practiceMode));
     setTypedValue("");
     setTimeLeft(nextDuration);
     setHasStarted(false);
@@ -338,6 +384,21 @@ export default function TypingBox() {
             </span>
           </div>
           <div className="hidden h-6 w-px bg-white/10 sm:block" />
+          {practiceModes.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => handlePracticeModeChange(option)}
+              className={`rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] transition ${
+                practiceMode === option
+                  ? "bg-[#f0ab3c] text-[#16120d] shadow-[0_0_24px_rgba(240,171,60,0.22)]"
+                  : "text-[#8f816f] hover:text-[#f5efe6]"
+              }`}
+            >
+              {option === "code" ? "Coding practice" : "Word practice"}
+            </button>
+          ))}
+          <div className="hidden h-6 w-px bg-white/10 sm:block" />
           {difficultyOptions.map((option) => (
             <button
               key={option}
@@ -402,7 +463,13 @@ export default function TypingBox() {
           ref={textRef}
           className="mt-7 w-full max-w-6xl rounded-[1.8rem] border border-white/6 bg-[linear-gradient(180deg,rgba(255,255,255,0.025),rgba(255,255,255,0.01))] px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:mt-8 sm:px-6 sm:py-6 lg:px-8"
         >
-          <p className="flex flex-wrap gap-y-3 text-[1.45rem] leading-[1.7] tracking-[-0.05em] sm:text-[1.8rem] sm:leading-[1.8] lg:text-[2.2rem] lg:leading-[1.85]">
+          <p
+            className={`flex flex-wrap gap-y-3 tracking-[-0.05em] ${
+              practiceMode === "code"
+                ? "font-mono text-[1.05rem] leading-[1.9] sm:text-[1.2rem] sm:leading-[2] lg:text-[1.4rem] lg:leading-[2.1]"
+                : "text-[1.45rem] leading-[1.7] sm:text-[1.8rem] sm:leading-[1.8] lg:text-[2.2rem] lg:leading-[1.85]"
+            }`}
+          >
             {prompt.split("").map((char, index) => {
               const typedChar = typedValue[index];
               const isCurrent = index === typedValue.length;
