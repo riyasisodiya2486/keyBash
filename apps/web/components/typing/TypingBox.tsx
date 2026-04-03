@@ -1,174 +1,467 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
-import TextRenderer from "@/components/typing/TextRenderer";
 
-const text = "The quick brown fox jumps over the lazy dog";
+const wordPools = {
+  easy: [
+    "can",
+    "that",
+    "this",
+    "us",
+    "think",
+    "just",
+    "see",
+    "look",
+    "their",
+    "but",
+    "do",
+    "any",
+    "in",
+    "now",
+    "know",
+    "into",
+    "day",
+    "know",
+    "who",
+    "when",
+    "these",
+    "how",
+    "so",
+    "there",
+    "say",
+    "want",
+    "or",
+    "other",
+    "type",
+    "light",
+    "flow",
+    "soft",
+    "clean",
+    "focus",
+    "move",
+    "train",
+  ],
+  medium: [
+    "velocity",
+    "signal",
+    "pressure",
+    "rapid",
+    "balance",
+    "kinetic",
+    "session",
+    "arcade",
+    "control",
+    "clarity",
+    "glimmer",
+    "cadence",
+    "pattern",
+    "timing",
+    "motion",
+    "finish",
+    "linear",
+    "vector",
+    "reactive",
+    "throttle",
+    "monitor",
+    "practice",
+    "dynamic",
+    "elevate",
+    "stamina",
+    "measure",
+    "highlight",
+    "rebound",
+  ],
+  hard: [
+    "oscillation",
+    "synchrony",
+    "microtiming",
+    "architecture",
+    "counterforce",
+    "interference",
+    "progressively",
+    "transmission",
+    "responsiveness",
+    "fragmentation",
+    "parallelism",
+    "recalibrate",
+    "compounding",
+    "displacement",
+    "uninterrupted",
+    "orchestration",
+    "performance",
+    "dimensionality",
+    "acceleration",
+    "instrumentation",
+  ],
+} as const;
 
-const stats = [
-  { label: "WPM", value: "0" },
-  { label: "Accuracy", value: "100%" },
-  { label: "Mode", value: "Practice" },
-];
+const durationOptions = [15, 30, 60] as const;
+const difficultyOptions = ["easy", "medium", "hard"] as const;
+
+type Difficulty = (typeof difficultyOptions)[number];
+
+function buildPrompt(level: Difficulty) {
+  const source = wordPools[level];
+  const words: string[] = [];
+
+  for (let index = 0; index < 32; index += 1) {
+    words.push(source[index % source.length]);
+  }
+
+  return words.join(" ");
+}
+
+function countTypedWords(value: string) {
+  return value.trim().split(/\s+/).filter(Boolean).length;
+}
 
 export default function TypingBox() {
+  const [difficulty, setDifficulty] = useState<Difficulty>("easy");
+  const [duration, setDuration] = useState<15 | 30 | 60>(30);
+  const [prompt, setPrompt] = useState(() => buildPrompt("easy"));
+  const [typedValue, setTypedValue] = useState("");
+  const [timeLeft, setTimeLeft] = useState(30);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
+
   const shellRef = useRef<HTMLDivElement | null>(null);
-  const heroRef = useRef<HTMLDivElement | null>(null);
-  const cardRef = useRef<HTMLDivElement | null>(null);
-  const badgeRef = useRef<HTMLDivElement | null>(null);
-  const statsRef = useRef<Array<HTMLDivElement | null>>([]);
-  const orbLeftRef = useRef<HTMLDivElement | null>(null);
-  const orbRightRef = useRef<HTMLDivElement | null>(null);
+  const topBarRef = useRef<HTMLDivElement | null>(null);
+  const timerRef = useRef<HTMLDivElement | null>(null);
+  const textRef = useRef<HTMLDivElement | null>(null);
+  const hintRef = useRef<HTMLParagraphElement | null>(null);
+  const ghostInputRef = useRef<HTMLInputElement | null>(null);
+  const orbsRef = useRef<Array<HTMLDivElement | null>>([]);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    const statsNodes = statsRef.current.filter(
-      (node): node is HTMLDivElement => node !== null,
-    );
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        topBarRef.current,
+        { autoAlpha: 0, y: -28, filter: "blur(14px)" },
+        { autoAlpha: 1, y: 0, filter: "blur(0px)", duration: 1, ease: "power3.out" },
+      );
 
-    const context = gsap.context(() => {
-      gsap.set([heroRef.current, badgeRef.current, cardRef.current], {
-        opacity: 0,
-      });
+      gsap.fromTo(
+        timerRef.current,
+        { autoAlpha: 0, scale: 0.88, y: 30, filter: "blur(20px)" },
+        { autoAlpha: 1, scale: 1, y: 0, filter: "blur(0px)", duration: 1.1, ease: "power3.out", delay: 0.18 },
+      );
 
-      const timeline = gsap.timeline({ defaults: { ease: "power3.out" } });
+      gsap.fromTo(
+        textRef.current,
+        { autoAlpha: 0, y: 36, filter: "blur(18px)" },
+        { autoAlpha: 1, y: 0, filter: "blur(0px)", duration: 1.05, ease: "power3.out", delay: 0.3 },
+      );
 
-      timeline
-        .fromTo(
-          heroRef.current,
-          { y: 36, opacity: 0, filter: "blur(16px)" },
-          { y: 0, opacity: 1, filter: "blur(0px)", duration: 1 },
-        )
-        .fromTo(
-          badgeRef.current,
-          { y: 20, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.65 },
-          "-=0.55",
-        )
-        .fromTo(
-          cardRef.current,
-          { y: 48, opacity: 0, rotateX: -8 },
-          { y: 0, opacity: 1, rotateX: 0, duration: 1 },
-          "-=0.45",
-        )
-        .fromTo(
-          statsNodes,
-          { y: 16, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.5, stagger: 0.08 },
-          "-=0.55",
-        );
+      gsap.fromTo(
+        hintRef.current,
+        { autoAlpha: 0, y: 24 },
+        { autoAlpha: 1, y: 0, duration: 0.8, ease: "power2.out", delay: 0.5 },
+      );
 
-      gsap.to(orbLeftRef.current, {
-        x: 26,
-        y: 18,
-        scale: 1.08,
-        duration: 5.5,
-        repeat: -1,
-        yoyo: true,
-        ease: "sine.inOut",
-      });
+      orbsRef.current.forEach((orb, index) => {
+        if (!orb) {
+          return;
+        }
 
-      gsap.to(orbRightRef.current, {
-        x: -22,
-        y: -16,
-        scale: 0.94,
-        duration: 6,
-        repeat: -1,
-        yoyo: true,
-        ease: "sine.inOut",
+        gsap.to(orb, {
+          x: index % 2 === 0 ? 36 : -28,
+          y: index % 2 === 0 ? 24 : -20,
+          scale: index === 1 ? 1.12 : 0.94,
+          duration: 5.5 + index,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut",
+        });
       });
     }, shellRef);
 
-    return () => context.revert();
+    return () => ctx.revert();
   }, []);
+
+  useEffect(() => {
+    if (!hasStarted || isComplete) {
+      return;
+    }
+
+    intervalRef.current = setInterval(() => {
+      setTimeLeft((current) => {
+        if (current <= 1) {
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+          }
+          setIsComplete(true);
+          return 0;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [hasStarted, isComplete]);
+
+  useEffect(() => {
+    if (!timerRef.current) {
+      return;
+    }
+
+    gsap.fromTo(
+      timerRef.current,
+      { scale: 1.08, textShadow: "0 0 22px rgba(201,142,74,0.4)" },
+      { scale: 1, textShadow: "0 0 0 rgba(201,142,74,0)", duration: 0.45, ease: "power2.out" },
+    );
+  }, [timeLeft]);
+
+  useEffect(() => {
+    ghostInputRef.current?.focus();
+  }, []);
+
+  const typedChars = typedValue.length;
+  const promptChars = prompt.length;
+  const correctChars = typedValue.split("").filter((char, index) => char === prompt[index]).length;
+  const accuracy = typedChars > 0 ? Math.round((correctChars / typedChars) * 100) : 100;
+  const typedWords = countTypedWords(typedValue);
+  const elapsed = Math.max(duration - timeLeft, 1);
+  const wpm = hasStarted ? Math.round((typedWords / elapsed) * 60) : 0;
+
+  const handleReset = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    setPrompt(buildPrompt(difficulty));
+    setTypedValue("");
+    setTimeLeft(duration);
+    setHasStarted(false);
+    setIsComplete(false);
+    ghostInputRef.current?.focus();
+  };
+
+  const handleDifficultyChange = (nextDifficulty: Difficulty) => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    setDifficulty(nextDifficulty);
+    setPrompt(buildPrompt(nextDifficulty));
+    setTypedValue("");
+    setTimeLeft(duration);
+    setHasStarted(false);
+    setIsComplete(false);
+    ghostInputRef.current?.focus();
+  };
+
+  const handleDurationChange = (nextDuration: 15 | 30 | 60) => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    setDuration(nextDuration);
+    setPrompt(buildPrompt(difficulty));
+    setTypedValue("");
+    setTimeLeft(nextDuration);
+    setHasStarted(false);
+    setIsComplete(false);
+    ghostInputRef.current?.focus();
+  };
+
+  const handleChange = (value: string) => {
+    if (isComplete) {
+      return;
+    }
+
+    const nextValue = value.slice(0, promptChars);
+
+    if (!hasStarted && nextValue.length > 0) {
+      setHasStarted(true);
+    }
+
+    setTypedValue(nextValue);
+
+    if (nextValue.length >= promptChars) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      setIsComplete(true);
+    }
+  };
 
   return (
     <section
       ref={shellRef}
-      className="relative isolate overflow-hidden rounded-[2.5rem] border border-white/10 bg-white/[0.04] px-5 py-8 shadow-[0_30px_120px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:px-8 sm:py-10 lg:px-10"
+      className="relative isolate h-[calc(100dvh-1rem)] w-full overflow-hidden rounded-[2.3rem] border border-white/8 bg-[linear-gradient(180deg,rgba(20,23,29,0.94),rgba(8,10,14,0.98))] px-4 py-4 shadow-[0_40px_140px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:h-[calc(100dvh-2rem)] sm:px-5 sm:py-5 lg:px-6"
+      onClick={() => ghostInputRef.current?.focus()}
     >
-      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),transparent_35%,transparent_65%,rgba(201,142,74,0.08))]" />
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(245,239,230,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(245,239,230,0.05)_1px,transparent_1px)] bg-[size:56px_56px] opacity-20" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_22%,rgba(201,142,74,0.16),transparent_24%),radial-gradient(circle_at_82%_16%,rgba(255,255,255,0.05),transparent_18%),linear-gradient(to_right,rgba(245,239,230,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(245,239,230,0.03)_1px,transparent_1px)] bg-[size:auto,auto,72px_72px,72px_72px]" />
       <div
-        ref={orbLeftRef}
-        className="absolute -left-12 top-10 h-40 w-40 rounded-full bg-[#d7b384]/18 blur-3xl"
+        ref={(node) => {
+          orbsRef.current[0] = node;
+        }}
+        className="absolute left-[4%] top-20 h-52 w-52 rounded-full bg-[#c98e4a]/10 blur-3xl"
       />
       <div
-        ref={orbRightRef}
-        className="absolute -right-12 bottom-4 h-56 w-56 rounded-full bg-[#6f88ff]/14 blur-3xl"
+        ref={(node) => {
+          orbsRef.current[1] = node;
+        }}
+        className="absolute right-[10%] top-12 h-64 w-64 rounded-full bg-[#f5efe6]/6 blur-3xl"
+      />
+      <div
+        ref={(node) => {
+          orbsRef.current[2] = node;
+        }}
+        className="absolute bottom-8 left-1/2 h-44 w-44 -translate-x-1/2 rounded-full bg-[#c98e4a]/8 blur-3xl"
       />
 
-      <div ref={badgeRef} className="relative z-10">
-        <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-[#0f151d]/80 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.28em] text-[#b4a18a]">
-          <span className="h-2 w-2 rounded-full bg-[#c98e4a]" />
-          Typing chamber
-        </div>
-      </div>
+      <input
+        ref={ghostInputRef}
+        value={typedValue}
+        onChange={(event) => handleChange(event.target.value)}
+        className="pointer-events-none absolute opacity-0"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
+        aria-label="Typing input"
+      />
 
-      <div
-        ref={heroRef}
-        className="relative z-10 mt-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between"
-      >
-        <div className="max-w-3xl">
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#8f816f]">
-            Practice interface
-          </p>
-          <h1 className="mt-4 text-5xl font-semibold tracking-[-0.07em] text-[#f5efe6] sm:text-6xl lg:text-[5.5rem]">
-            Type inside a
-            <span className="block bg-[linear-gradient(120deg,#f5efe6_0%,#d7b384_42%,#8ea8ff_100%)] bg-clip-text text-transparent">
-              cinematic focus lane.
+      <div ref={topBarRef} className="relative z-10 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-3 rounded-full border border-white/8 bg-white/[0.03] px-3 py-2">
+          <div className="flex items-center gap-3 pr-2">
+            <span className="h-3 w-3 rounded-full bg-[#c98e4a]" />
+            <span className="text-lg font-semibold tracking-[-0.05em] text-[#f5efe6] sm:text-xl">
+              KeyBash
             </span>
-          </h1>
+          </div>
+          <div className="hidden h-6 w-px bg-white/10 sm:block" />
+          {difficultyOptions.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => handleDifficultyChange(option)}
+              className={`rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] transition ${
+                difficulty === option
+                  ? "bg-[#f0ab3c] text-[#16120d] shadow-[0_0_24px_rgba(240,171,60,0.22)]"
+                  : "text-[#8f816f] hover:text-[#f5efe6]"
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+          <div className="hidden h-6 w-px bg-white/10 sm:block" />
+          {durationOptions.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => handleDurationChange(option)}
+              className={`rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] transition ${
+                duration === option
+                  ? "bg-[#f0ab3c] text-[#16120d] shadow-[0_0_24px_rgba(240,171,60,0.22)]"
+                  : "text-[#8f816f] hover:text-[#f5efe6]"
+              }`}
+            >
+              {option}s
+            </button>
+          ))}
+          <div className="hidden h-6 w-px bg-white/10 sm:block" />
+          <button
+            type="button"
+            onClick={handleReset}
+            className="px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] text-[#8f816f] transition hover:text-[#f5efe6]"
+          >
+            Reset
+          </button>
         </div>
 
-        <div className="max-w-md rounded-[1.7rem] border border-white/8 bg-[#0d1117]/80 p-5 text-sm leading-7 text-[#c4b7a7] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-          Static UI only for now: rendered text, fake cursor, and a ready-made stats bar
-          so we can wire logic in later without redoing layout or motion.
+        <div className="flex items-center gap-3">
+          <div className="rounded-full border border-white/8 bg-white/[0.03] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] text-[#8f816f]">
+            {isComplete ? "Run complete" : hasStarted ? "Live run" : "Idle"}
+          </div>
+          <a
+            href="/sign-in"
+            className="rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] text-[#8f816f] transition hover:text-[#f5efe6]"
+          >
+            Sign in
+          </a>
         </div>
       </div>
 
-      <div
-        ref={cardRef}
-        className="relative z-10 mt-10 rounded-[2.2rem] border border-white/10 bg-[#0b1016]/90 p-4 shadow-[0_20px_90px_rgba(0,0,0,0.35)] sm:p-5"
-        style={{ transformPerspective: "1200px" }}
-      >
-        <div className="rounded-[1.8rem] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 sm:p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#8f816f]">
-                Prompt
-              </p>
-              <p className="mt-2 text-sm text-[#c4b7a7]">
-                Warm up with a classic pangram before we plug in timing and keystroke
-                tracking.
-              </p>
-            </div>
-            <div className="inline-flex items-center rounded-full border border-[#c98e4a]/20 bg-[#c98e4a]/10 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] text-[#ddb98f]">
-              UI Preview
-            </div>
-          </div>
+      <div className="relative z-10 flex h-[calc(100%-5.5rem)] flex-col items-center justify-center px-2 py-4 sm:h-[calc(100%-6rem)] sm:px-4 sm:py-5">
+        <div
+          ref={timerRef}
+          className="font-mono text-[3.5rem] font-semibold tracking-[-0.08em] text-[#f0ab3c] drop-shadow-[0_0_18px_rgba(240,171,60,0.35)] sm:text-[4.5rem] lg:text-[5.15rem]"
+        >
+          {timeLeft}
+        </div>
 
-          <div className="mt-6">
-            <TextRenderer text={text} />
-          </div>
+        <div
+          ref={textRef}
+          className="mt-7 w-full max-w-6xl rounded-[1.8rem] border border-white/6 bg-[linear-gradient(180deg,rgba(255,255,255,0.025),rgba(255,255,255,0.01))] px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:mt-8 sm:px-6 sm:py-6 lg:px-8"
+        >
+          <p className="flex flex-wrap gap-y-3 text-[1.45rem] leading-[1.7] tracking-[-0.05em] sm:text-[1.8rem] sm:leading-[1.8] lg:text-[2.2rem] lg:leading-[1.85]">
+            {prompt.split("").map((char, index) => {
+              const typedChar = typedValue[index];
+              const isCurrent = index === typedValue.length;
+              let tone = "text-[#3f434e]";
 
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            {stats.map((stat, index) => (
-              <div
-                key={stat.label}
-                ref={(node) => {
-                  statsRef.current[index] = node;
-                }}
-                className="rounded-[1.4rem] border border-white/8 bg-white/[0.04] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
-              >
-                <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#8f816f]">
-                  {stat.label}
-                </p>
-                <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#f5efe6]">
-                  {stat.value}
-                </p>
-              </div>
-            ))}
+              if (typedChar !== undefined) {
+                tone = typedChar === char ? "text-[#f5efe6]" : "text-[#ff8f7a]";
+              } else if (isCurrent) {
+                tone = "text-[#78715f]";
+              }
+
+              return (
+                <span key={`${char}-${index}`} className="relative inline-flex items-center">
+                  {isCurrent ? (
+                    <span
+                      aria-hidden="true"
+                      className="mr-1 inline-block h-[1.1em] w-[3px] rounded-full bg-[#c98e4a] shadow-[0_0_18px_rgba(201,142,74,0.85)]"
+                    />
+                  ) : null}
+                  <span className={`${tone} ${char === " " ? "w-[0.38em]" : ""}`}>
+                    {char === " " ? "\u00A0" : char}
+                  </span>
+                </span>
+              );
+            })}
+          </p>
+        </div>
+
+        <p
+          ref={hintRef}
+          className="mt-6 font-mono text-[0.78rem] uppercase tracking-[0.24em] text-[#666256] sm:mt-8 sm:text-[0.9rem]"
+        >
+          {isComplete ? "run complete. tap reset to go again." : "start typing to begin..."}
+        </p>
+
+        <div className="mt-6 grid w-full max-w-4xl gap-3 sm:mt-7 sm:grid-cols-3">
+          <div className="rounded-[1.6rem] border border-white/8 bg-white/[0.03] px-5 py-4">
+            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#8f816f]">
+              WPM
+            </p>
+            <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#f5efe6] sm:text-3xl">
+              {wpm}
+            </p>
+          </div>
+          <div className="rounded-[1.6rem] border border-white/8 bg-white/[0.03] px-5 py-4">
+            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#8f816f]">
+              Accuracy
+            </p>
+            <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#f5efe6] sm:text-3xl">
+              {accuracy}%
+            </p>
+          </div>
+          <div className="rounded-[1.6rem] border border-white/8 bg-white/[0.03] px-5 py-4">
+            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#8f816f]">
+              Progress
+            </p>
+            <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#f5efe6] sm:text-3xl">
+              {Math.round((typedChars / promptChars) * 100)}%
+            </p>
           </div>
         </div>
       </div>

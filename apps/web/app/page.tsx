@@ -100,7 +100,7 @@ export default function Home() {
                 Sign in
               </Link>
               <Link
-                href="#"
+                href="/practice"
                 className="inline-flex items-center justify-center rounded-full bg-[#f5efe6] px-6 py-4 font-mono text-[11px] uppercase tracking-[0.26em] text-[#16120d] transition hover:bg-[#fffaf2]"
               >
                 Start solo run

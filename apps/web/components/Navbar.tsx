@@ -87,7 +87,7 @@ export function Navbar() {
           </Link>
           <Link
             ref={ctaRef}
-            href="#"
+            href="/practice"
             className="inline-flex h-11 items-center gap-3 rounded-full bg-[#f5efe6] px-5 font-mono text-[11px] font-semibold uppercase tracking-[0.24em] text-[#16120d] transition duration-300 hover:scale-[1.02] hover:bg-[#fffaf2]"
           >
             Start typing
