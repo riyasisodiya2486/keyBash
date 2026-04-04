@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
 import gsap from "gsap";
 
 const wordPools = {
@@ -152,7 +153,8 @@ export default function TypingBox() {
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
   const [duration, setDuration] = useState<15 | 30 | 60>(30);
   const [prompt, setPrompt] = useState(() => buildPrompt("easy", "words"));
-  const [typedValue, setTypedValue] = useState("");
+  const [typedText, setTypedText] = useState("");
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(30);
   const [hasStarted, setHasStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -254,11 +256,11 @@ export default function TypingBox() {
     ghostInputRef.current?.focus();
   }, []);
 
-  const typedChars = typedValue.length;
+  const typedChars = typedText.length;
   const promptChars = prompt.length;
-  const correctChars = typedValue.split("").filter((char, index) => char === prompt[index]).length;
+  const correctChars = typedText.split("").filter((char, index) => char === prompt[index]).length;
   const accuracy = typedChars > 0 ? Math.round((correctChars / typedChars) * 100) : 100;
-  const typedWords = countTypedWords(typedValue);
+  const typedWords = countTypedWords(typedText);
   const elapsed = Math.max(duration - timeLeft, 1);
   const wpm = hasStarted ? Math.round((typedWords / elapsed) * 60) : 0;
 
@@ -268,7 +270,8 @@ export default function TypingBox() {
     }
 
     setPrompt(buildPrompt(difficulty, practiceMode));
-    setTypedValue("");
+    setTypedText("");
+    setCurrentIndex(0);
     setTimeLeft(duration);
     setHasStarted(false);
     setIsComplete(false);
@@ -282,7 +285,8 @@ export default function TypingBox() {
 
     setPracticeMode(nextMode);
     setPrompt(buildPrompt(difficulty, nextMode));
-    setTypedValue("");
+    setTypedText("");
+    setCurrentIndex(0);
     setTimeLeft(duration);
     setHasStarted(false);
     setIsComplete(false);
@@ -296,7 +300,8 @@ export default function TypingBox() {
 
     setDifficulty(nextDifficulty);
     setPrompt(buildPrompt(nextDifficulty, practiceMode));
-    setTypedValue("");
+    setTypedText("");
+    setCurrentIndex(0);
     setTimeLeft(duration);
     setHasStarted(false);
     setIsComplete(false);
@@ -310,31 +315,67 @@ export default function TypingBox() {
 
     setDuration(nextDuration);
     setPrompt(buildPrompt(difficulty, practiceMode));
-    setTypedValue("");
+    setTypedText("");
+    setCurrentIndex(0);
     setTimeLeft(nextDuration);
     setHasStarted(false);
     setIsComplete(false);
     ghostInputRef.current?.focus();
   };
 
-  const handleChange = (value: string) => {
+  const completeRun = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    setIsComplete(true);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (isComplete) {
       return;
     }
 
-    const nextValue = value.slice(0, promptChars);
+    if (event.key === "Tab") {
+      return;
+    }
 
-    if (!hasStarted && nextValue.length > 0) {
+    if (event.key === "Backspace") {
+      event.preventDefault();
+
+      if (typedText.length === 0) {
+        return;
+      }
+
+      const nextText = typedText.slice(0, -1);
+      setTypedText(nextText);
+      setCurrentIndex(nextText.length);
+      return;
+    }
+
+    if (event.key.length !== 1 || event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (!hasStarted) {
       setHasStarted(true);
     }
 
-    setTypedValue(nextValue);
+    if (currentIndex >= promptChars) {
+      completeRun();
+      return;
+    }
 
-    if (nextValue.length >= promptChars) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      setIsComplete(true);
+    const nextText = `${typedText}${event.key}`.slice(0, promptChars);
+    const nextIndex = Math.min(currentIndex + 1, promptChars);
+
+    setTypedText(nextText);
+    setCurrentIndex(nextIndex);
+
+    if (nextIndex >= promptChars) {
+      completeRun();
     }
   };
 
@@ -366,8 +407,9 @@ export default function TypingBox() {
 
       <input
         ref={ghostInputRef}
-        value={typedValue}
-        onChange={(event) => handleChange(event.target.value)}
+        value={typedText}
+        onKeyDown={handleKeyDown}
+        onChange={() => {}}
         className="pointer-events-none absolute opacity-0"
         autoCapitalize="off"
         autoCorrect="off"
@@ -471,14 +513,12 @@ export default function TypingBox() {
             }`}
           >
             {prompt.split("").map((char, index) => {
-              const typedChar = typedValue[index];
-              const isCurrent = index === typedValue.length;
-              let tone = "text-[#3f434e]";
+              const typedChar = typedText[index];
+              const isCurrent = index === currentIndex && !isComplete;
+              let tone = "text-[#6b7280]";
 
               if (typedChar !== undefined) {
-                tone = typedChar === char ? "text-[#f5efe6]" : "text-[#ff8f7a]";
-              } else if (isCurrent) {
-                tone = "text-[#78715f]";
+                tone = typedChar === char ? "text-[#4ade80]" : "text-[#f87171]";
               }
 
               return (
