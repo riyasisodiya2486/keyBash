@@ -332,6 +332,12 @@ export default function TypingBox() {
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleReset();
+      return;
+    }
+
     if (isComplete) {
       return;
     }
@@ -417,76 +423,78 @@ export default function TypingBox() {
         aria-label="Typing input"
       />
 
-      <div ref={topBarRef} className="relative z-10 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-3 rounded-full border border-white/8 bg-white/[0.03] px-3 py-2">
-          <div className="flex items-center gap-3 pr-2">
+      <div ref={topBarRef} className="relative z-10 grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+        <div className="min-w-0 max-w-full overflow-x-auto rounded-full border border-white/8 bg-white/[0.03] px-3 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex min-w-max items-center gap-3 whitespace-nowrap">
+            <div className="flex items-center gap-3 pr-2">
             <span className="h-3 w-3 rounded-full bg-[#c98e4a]" />
             <span className="text-lg font-semibold tracking-[-0.05em] text-[#f5efe6] sm:text-xl">
               KeyBash
             </span>
+            </div>
+            <div className="hidden h-6 w-px bg-white/10 sm:block" />
+            {practiceModes.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => handlePracticeModeChange(option)}
+                className={`rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] whitespace-nowrap transition ${
+                  practiceMode === option
+                    ? "bg-[#f0ab3c] text-[#16120d] shadow-[0_0_24px_rgba(240,171,60,0.22)]"
+                    : "text-[#8f816f] hover:text-[#f5efe6]"
+                }`}
+              >
+                {option === "code" ? "Coding practice" : "Word practice"}
+              </button>
+            ))}
+            <div className="hidden h-6 w-px bg-white/10 sm:block" />
+            {difficultyOptions.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => handleDifficultyChange(option)}
+                className={`rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] whitespace-nowrap transition ${
+                  difficulty === option
+                    ? "bg-[#f0ab3c] text-[#16120d] shadow-[0_0_24px_rgba(240,171,60,0.22)]"
+                    : "text-[#8f816f] hover:text-[#f5efe6]"
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+            <div className="hidden h-6 w-px bg-white/10 sm:block" />
+            {durationOptions.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => handleDurationChange(option)}
+                className={`rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] whitespace-nowrap transition ${
+                  duration === option
+                    ? "bg-[#f0ab3c] text-[#16120d] shadow-[0_0_24px_rgba(240,171,60,0.22)]"
+                    : "text-[#8f816f] hover:text-[#f5efe6]"
+                }`}
+              >
+                {option}s
+              </button>
+            ))}
+            <div className="hidden h-6 w-px bg-white/10 sm:block" />
+            <button
+              type="button"
+              onClick={handleReset}
+              className="px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] whitespace-nowrap text-[#8f816f] transition hover:text-[#f5efe6]"
+            >
+              Reset
+            </button>
           </div>
-          <div className="hidden h-6 w-px bg-white/10 sm:block" />
-          {practiceModes.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => handlePracticeModeChange(option)}
-              className={`rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] transition ${
-                practiceMode === option
-                  ? "bg-[#f0ab3c] text-[#16120d] shadow-[0_0_24px_rgba(240,171,60,0.22)]"
-                  : "text-[#8f816f] hover:text-[#f5efe6]"
-              }`}
-            >
-              {option === "code" ? "Coding practice" : "Word practice"}
-            </button>
-          ))}
-          <div className="hidden h-6 w-px bg-white/10 sm:block" />
-          {difficultyOptions.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => handleDifficultyChange(option)}
-              className={`rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] transition ${
-                difficulty === option
-                  ? "bg-[#f0ab3c] text-[#16120d] shadow-[0_0_24px_rgba(240,171,60,0.22)]"
-                  : "text-[#8f816f] hover:text-[#f5efe6]"
-              }`}
-            >
-              {option}
-            </button>
-          ))}
-          <div className="hidden h-6 w-px bg-white/10 sm:block" />
-          {durationOptions.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => handleDurationChange(option)}
-              className={`rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] transition ${
-                duration === option
-                  ? "bg-[#f0ab3c] text-[#16120d] shadow-[0_0_24px_rgba(240,171,60,0.22)]"
-                  : "text-[#8f816f] hover:text-[#f5efe6]"
-              }`}
-            >
-              {option}s
-            </button>
-          ))}
-          <div className="hidden h-6 w-px bg-white/10 sm:block" />
-          <button
-            type="button"
-            onClick={handleReset}
-            className="px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] text-[#8f816f] transition hover:text-[#f5efe6]"
-          >
-            Reset
-          </button>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="rounded-full border border-white/8 bg-white/[0.03] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] text-[#8f816f]">
+        <div className="flex shrink-0 items-center justify-end gap-3 xl:pl-3">
+          <div className="min-w-[9.75rem] rounded-full border border-white/8 bg-white/[0.03] px-4 py-2 text-center font-mono text-[11px] uppercase tracking-[0.24em] text-[#8f816f]">
             {isComplete ? "Run complete" : hasStarted ? "Live run" : "Idle"}
           </div>
           <a
             href="/sign-in"
-            className="rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] text-[#8f816f] transition hover:text-[#f5efe6]"
+            className="rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] whitespace-nowrap text-[#8f816f] transition hover:text-[#f5efe6]"
           >
             Sign in
           </a>
