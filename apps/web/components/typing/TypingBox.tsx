@@ -154,7 +154,6 @@ export default function TypingBox() {
   const [duration, setDuration] = useState<15 | 30 | 60>(30);
   const [prompt, setPrompt] = useState(() => buildPrompt("easy", "words"));
   const [typedText, setTypedText] = useState("");
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(30);
   const [hasStarted, setHasStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -256,6 +255,7 @@ export default function TypingBox() {
     ghostInputRef.current?.focus();
   }, []);
 
+  const currentIndex = typedText.length;
   const typedChars = typedText.length;
   const promptChars = prompt.length;
   const correctChars = typedText.split("").filter((char, index) => char === prompt[index]).length;
@@ -264,68 +264,43 @@ export default function TypingBox() {
   const elapsed = Math.max(duration - timeLeft, 1);
   const wpm = hasStarted ? Math.round((typedWords / elapsed) * 60) : 0;
 
-  const handleReset = () => {
+  const resetSession = (nextPrompt = buildPrompt(difficulty, practiceMode), nextTimeLeft = duration) => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
 
-    setPrompt(buildPrompt(difficulty, practiceMode));
+    setPrompt(nextPrompt);
     setTypedText("");
-    setCurrentIndex(0);
-    setTimeLeft(duration);
+    setTimeLeft(nextTimeLeft);
     setHasStarted(false);
     setIsComplete(false);
     ghostInputRef.current?.focus();
+  };
+
+  const handleReset = () => {
+    resetSession();
   };
 
   const handlePracticeModeChange = (nextMode: PracticeMode) => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
     setPracticeMode(nextMode);
-    setPrompt(buildPrompt(difficulty, nextMode));
-    setTypedText("");
-    setCurrentIndex(0);
-    setTimeLeft(duration);
-    setHasStarted(false);
-    setIsComplete(false);
-    ghostInputRef.current?.focus();
+    resetSession(buildPrompt(difficulty, nextMode));
   };
 
   const handleDifficultyChange = (nextDifficulty: Difficulty) => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
     setDifficulty(nextDifficulty);
-    setPrompt(buildPrompt(nextDifficulty, practiceMode));
-    setTypedText("");
-    setCurrentIndex(0);
-    setTimeLeft(duration);
-    setHasStarted(false);
-    setIsComplete(false);
-    ghostInputRef.current?.focus();
+    resetSession(buildPrompt(nextDifficulty, practiceMode));
   };
 
   const handleDurationChange = (nextDuration: 15 | 30 | 60) => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
     setDuration(nextDuration);
-    setPrompt(buildPrompt(difficulty, practiceMode));
-    setTypedText("");
-    setCurrentIndex(0);
-    setTimeLeft(nextDuration);
-    setHasStarted(false);
-    setIsComplete(false);
-    ghostInputRef.current?.focus();
+    resetSession(buildPrompt(difficulty, practiceMode), nextDuration);
   };
 
   const completeRun = () => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
 
     setIsComplete(true);
@@ -343,6 +318,8 @@ export default function TypingBox() {
     }
 
     if (event.key === "Tab") {
+      event.preventDefault();
+      ghostInputRef.current?.focus();
       return;
     }
 
@@ -353,9 +330,7 @@ export default function TypingBox() {
         return;
       }
 
-      const nextText = typedText.slice(0, -1);
-      setTypedText(nextText);
-      setCurrentIndex(nextText.length);
+      setTypedText((current) => current.slice(0, -1));
       return;
     }
 
@@ -375,10 +350,9 @@ export default function TypingBox() {
     }
 
     const nextText = `${typedText}${event.key}`.slice(0, promptChars);
-    const nextIndex = Math.min(currentIndex + 1, promptChars);
+    const nextIndex = nextText.length;
 
     setTypedText(nextText);
-    setCurrentIndex(nextIndex);
 
     if (nextIndex >= promptChars) {
       completeRun();
