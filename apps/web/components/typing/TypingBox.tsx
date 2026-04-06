@@ -128,6 +128,26 @@ const practiceModes = ["words", "code"] as const;
 type Difficulty = (typeof difficultyOptions)[number];
 type PracticeMode = (typeof practiceModes)[number];
 
+function clampPercentage(value: number) {
+  return Math.max(0, Math.min(100, value));
+}
+
+function calculateGrossWpm(typedChars: number, elapsedMinutes: number) {
+  if (elapsedMinutes <= 0) {
+    return 0;
+  }
+
+  return Math.round((typedChars / 5) / elapsedMinutes);
+}
+
+function calculateNetWpm(correctChars: number, elapsedMinutes: number) {
+  if (elapsedMinutes <= 0) {
+    return 0;
+  }
+
+  return Math.round((correctChars / 5) / elapsedMinutes);
+}
+
 function buildPrompt(level: Difficulty, mode: PracticeMode) {
   if (mode === "code") {
     const source = codePools[level];
@@ -144,10 +164,6 @@ function buildPrompt(level: Difficulty, mode: PracticeMode) {
   return words.join(" ");
 }
 
-function countTypedWords(value: string) {
-  return value.trim().split(/\s+/).filter(Boolean).length;
-}
-
 export default function TypingBox() {
   const [practiceMode, setPracticeMode] = useState<PracticeMode>("words");
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
@@ -157,6 +173,8 @@ export default function TypingBox() {
   const [timeLeft, setTimeLeft] = useState(30);
   const [hasStarted, setHasStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
 
   const shellRef = useRef<HTMLDivElement | null>(null);
   const topBarRef = useRef<HTMLDivElement | null>(null);
@@ -214,30 +232,36 @@ export default function TypingBox() {
   }, []);
 
   useEffect(() => {
-    if (!hasStarted || isComplete) {
+    if (!hasStarted || isComplete || startTime === null) {
       return;
     }
 
     intervalRef.current = setInterval(() => {
-      setTimeLeft((current) => {
-        if (current <= 1) {
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-          }
-          setIsComplete(true);
-          return 0;
-        }
+      const nextElapsedMs = performance.now() - startTime;
+      const remainingSeconds = Math.max(
+        duration - Math.floor(nextElapsedMs / 1000),
+        0,
+      );
 
-        return current - 1;
-      });
-    }, 1000);
+      setElapsedMs(nextElapsedMs);
+      setTimeLeft(remainingSeconds);
+
+      if (remainingSeconds === 0) {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        setIsComplete(true);
+      }
+    }, 100);
 
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
-  }, [hasStarted, isComplete]);
+  }, [duration, hasStarted, isComplete, startTime]);
 
   useEffect(() => {
     if (!timerRef.current) {
@@ -259,10 +283,16 @@ export default function TypingBox() {
   const typedChars = typedText.length;
   const promptChars = prompt.length;
   const correctChars = typedText.split("").filter((char, index) => char === prompt[index]).length;
-  const accuracy = typedChars > 0 ? Math.round((correctChars / typedChars) * 100) : 100;
-  const typedWords = countTypedWords(typedText);
-  const elapsed = Math.max(duration - timeLeft, 1);
-  const wpm = hasStarted ? Math.round((typedWords / elapsed) * 60) : 0;
+  const incorrectChars = typedChars - correctChars;
+  const elapsedMinutes = elapsedMs > 0 ? elapsedMs / 60000 : 0;
+  const accuracy = typedChars > 0
+    ? Math.round(clampPercentage((correctChars / typedChars) * 100))
+    : 100;
+  const grossWpm = calculateGrossWpm(typedChars, elapsedMinutes);
+  const wpm = calculateNetWpm(correctChars, elapsedMinutes);
+  const progress = promptChars > 0
+    ? Math.round(clampPercentage((typedChars / promptChars) * 100))
+    : 0;
 
   const resetSession = (nextPrompt = buildPrompt(difficulty, practiceMode), nextTimeLeft = duration) => {
     if (intervalRef.current) {
@@ -275,6 +305,8 @@ export default function TypingBox() {
     setTimeLeft(nextTimeLeft);
     setHasStarted(false);
     setIsComplete(false);
+    setStartTime(null);
+    setElapsedMs(0);
     ghostInputRef.current?.focus();
   };
 
@@ -297,10 +329,15 @@ export default function TypingBox() {
     resetSession(buildPrompt(difficulty, practiceMode), nextDuration);
   };
 
-  const completeRun = () => {
+  const completeRun = (completedAt = startTime) => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
+    }
+
+    if (startTime !== null && completedAt !== null) {
+      setElapsedMs(completedAt - startTime);
+      setTimeLeft((current) => Math.max(current, 0));
     }
 
     setIsComplete(true);
@@ -341,7 +378,10 @@ export default function TypingBox() {
     event.preventDefault();
 
     if (!hasStarted) {
+      const nextStartTime = event.timeStamp;
       setHasStarted(true);
+      setStartTime(nextStartTime);
+      setElapsedMs(0);
     }
 
     if (currentIndex >= promptChars) {
@@ -355,7 +395,7 @@ export default function TypingBox() {
     setTypedText(nextText);
 
     if (nextIndex >= promptChars) {
-      completeRun();
+      completeRun(event.timeStamp);
     }
   };
 
@@ -527,13 +567,16 @@ export default function TypingBox() {
           {isComplete ? "run complete. tap reset to go again." : "start typing to begin..."}
         </p>
 
-        <div className="mt-6 grid w-full max-w-4xl gap-3 sm:mt-7 sm:grid-cols-3">
+        <div className="mt-6 grid w-full max-w-5xl gap-3 sm:mt-7 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-[1.6rem] border border-white/8 bg-white/[0.03] px-5 py-4">
             <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#8f816f]">
               WPM
             </p>
             <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#f5efe6] sm:text-3xl">
               {wpm}
+            </p>
+            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.22em] text-[#666256]">
+              Net speed from correct chars
             </p>
           </div>
           <div className="rounded-[1.6rem] border border-white/8 bg-white/[0.03] px-5 py-4">
@@ -543,13 +586,30 @@ export default function TypingBox() {
             <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#f5efe6] sm:text-3xl">
               {accuracy}%
             </p>
+            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.22em] text-[#666256]">
+              {correctChars} correct / {typedChars} typed
+            </p>
+          </div>
+          <div className="rounded-[1.6rem] border border-white/8 bg-white/[0.03] px-5 py-4">
+            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#8f816f]">
+              Raw WPM
+            </p>
+            <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#f5efe6] sm:text-3xl">
+              {grossWpm}
+            </p>
+            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.22em] text-[#666256]">
+              Speed before error penalty
+            </p>
           </div>
           <div className="rounded-[1.6rem] border border-white/8 bg-white/[0.03] px-5 py-4">
             <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#8f816f]">
               Progress
             </p>
             <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#f5efe6] sm:text-3xl">
-              {Math.round((typedChars / promptChars) * 100)}%
+              {progress}%
+            </p>
+            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.22em] text-[#666256]">
+              {incorrectChars} incorrect chars
             </p>
           </div>
         </div>
