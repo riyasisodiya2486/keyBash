@@ -10,6 +10,37 @@ body {
   color: #f5efe6;
 }
 
+.minimal-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(240, 171, 60, 0.28) transparent;
+}
+
+.minimal-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.minimal-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.minimal-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.minimal-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(240, 171, 60, 0.24);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.minimal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(240, 171, 60, 0.38);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
 ::selection {
   background: rgba(201, 142, 74, 0.24);
   color: #f5efe6;

@@ -4,165 +4,30 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import gsap from "gsap";
 
-const wordPools = {
-  easy: [
-    "can",
-    "that",
-    "this",
-    "us",
-    "think",
-    "just",
-    "see",
-    "look",
-    "their",
-    "but",
-    "do",
-    "any",
-    "in",
-    "now",
-    "know",
-    "into",
-    "day",
-    "know",
-    "who",
-    "when",
-    "these",
-    "how",
-    "so",
-    "there",
-    "say",
-    "want",
-    "or",
-    "other",
-    "type",
-    "light",
-    "flow",
-    "soft",
-    "clean",
-    "focus",
-    "move",
-    "train",
-  ],
-  medium: [
-    "velocity",
-    "signal",
-    "pressure",
-    "rapid",
-    "balance",
-    "kinetic",
-    "session",
-    "arcade",
-    "control",
-    "clarity",
-    "glimmer",
-    "cadence",
-    "pattern",
-    "timing",
-    "motion",
-    "finish",
-    "linear",
-    "vector",
-    "reactive",
-    "throttle",
-    "monitor",
-    "practice",
-    "dynamic",
-    "elevate",
-    "stamina",
-    "measure",
-    "highlight",
-    "rebound",
-  ],
-  hard: [
-    "oscillation",
-    "synchrony",
-    "microtiming",
-    "architecture",
-    "counterforce",
-    "interference",
-    "progressively",
-    "transmission",
-    "responsiveness",
-    "fragmentation",
-    "parallelism",
-    "recalibrate",
-    "compounding",
-    "displacement",
-    "uninterrupted",
-    "orchestration",
-    "performance",
-    "dimensionality",
-    "acceleration",
-    "instrumentation",
-  ],
-} as const;
-
-const codePools = {
-  easy: [
-    "const score = 42;",
-    "let speed = wordsTyped / minutes;",
-    "if (ready) return startTest();",
-    "for (const key of keys) focus(key);",
-    "const theme = 'ember';",
-    "type Mode = 'words' | 'code';",
-  ],
-  medium: [
-    "const result = entries.filter((item) => item.active).map((item) => item.label);",
-    "function formatWpm(value: number) { return `${Math.round(value)} wpm`; }",
-    "const nextUser = profile?.name ?? 'guest';",
-    "setSession((current) => ({ ...current, streak: current.streak + 1 }));",
-    "const visibleRows = rows.slice(0, limit).sort((a, b) => a.rank - b.rank);",
-  ],
-  hard: [
-    "const payload = await fetch('/api/runs').then((response) => response.json());",
-    "export function calculateAccuracy(correct: number, typed: number): number { return typed ? Math.round((correct / typed) * 100) : 100; }",
-    "const grouped = snippets.reduce<Record<string, number>>((acc, item) => ({ ...acc, [item.language]: (acc[item.language] ?? 0) + 1 }), {});",
-    "try { await saveRun(stats); } catch (error) { console.error('save failed', error); }",
-  ],
-} as const;
-
-const durationOptions = [15, 30, 60] as const;
-const difficultyOptions = ["easy", "medium", "hard"] as const;
-const practiceModes = ["words", "code"] as const;
-
-type Difficulty = (typeof difficultyOptions)[number];
-type PracticeMode = (typeof practiceModes)[number];
-
-function clampPercentage(value: number) {
-  return Math.max(0, Math.min(100, value));
-}
-
-function calculateGrossWpm(typedChars: number, elapsedMinutes: number) {
-  if (elapsedMinutes <= 0) {
-    return 0;
-  }
-
-  return Math.round((typedChars / 5) / elapsedMinutes);
-}
-
-function calculateNetWpm(correctChars: number, elapsedMinutes: number) {
-  if (elapsedMinutes <= 0) {
-    return 0;
-  }
-
-  return Math.round((correctChars / 5) / elapsedMinutes);
-}
-
-function buildPrompt(level: Difficulty, mode: PracticeMode) {
-  if (mode === "code") {
-    const source = codePools[level];
-    return source.join(" ");
-  }
-
-  const source = wordPools[level];
-  const words: string[] = [];
-
-  for (let index = 0; index < 32; index += 1) {
-    words.push(source[index % source.length]);
-  }
-
-  return words.join(" ");
-}
+import {
+  buildBurstSeries,
+  buildHeatmapByKey,
+  calculateGrossWpm,
+  calculateNetWpm,
+  clampPercentage,
+  getKeyCategory,
+  getMaxHeatLatencyMs,
+  getSlowestCategory,
+  normalizeHeatmapKey,
+} from "./analytics";
+import { buildPrompt } from "./config";
+import TypingResultsView from "./TypingResultsView";
+import TypingStatsGrid from "./TypingStatsGrid";
+import {
+  difficultyOptions,
+  durationOptions,
+  practiceModes,
+} from "./types";
+import type {
+  Difficulty,
+  KeyPressSample,
+  PracticeMode,
+} from "./types";
 
 export default function TypingBox() {
   const [practiceMode, setPracticeMode] = useState<PracticeMode>("words");
@@ -175,6 +40,7 @@ export default function TypingBox() {
   const [isComplete, setIsComplete] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [keyHistory, setKeyHistory] = useState<KeyPressSample[]>([]);
 
   const shellRef = useRef<HTMLDivElement | null>(null);
   const topBarRef = useRef<HTMLDivElement | null>(null);
@@ -184,6 +50,7 @@ export default function TypingBox() {
   const ghostInputRef = useRef<HTMLInputElement | null>(null);
   const orbsRef = useRef<Array<HTMLDivElement | null>>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastKeyTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -293,6 +160,10 @@ export default function TypingBox() {
   const progress = promptChars > 0
     ? Math.round(clampPercentage((typedChars / promptChars) * 100))
     : 0;
+  const heatmapByKey = buildHeatmapByKey(keyHistory);
+  const maxHeatLatencyMs = getMaxHeatLatencyMs(heatmapByKey);
+  const slowestCategory = getSlowestCategory(keyHistory);
+  const { burstSeries, burstPolyline } = buildBurstSeries(keyHistory, elapsedMs, startTime);
 
   const resetSession = (nextPrompt = buildPrompt(difficulty, practiceMode), nextTimeLeft = duration) => {
     if (intervalRef.current) {
@@ -307,6 +178,8 @@ export default function TypingBox() {
     setIsComplete(false);
     setStartTime(null);
     setElapsedMs(0);
+    setKeyHistory([]);
+    lastKeyTimeRef.current = null;
     ghostInputRef.current?.focus();
   };
 
@@ -382,20 +255,38 @@ export default function TypingBox() {
       setHasStarted(true);
       setStartTime(nextStartTime);
       setElapsedMs(0);
+      lastKeyTimeRef.current = nextStartTime;
     }
 
     if (currentIndex >= promptChars) {
-      completeRun();
+      completeRun(event.timeStamp);
       return;
     }
 
+    const currentTimestamp = event.timeStamp;
+    const expectedChar = prompt[currentIndex] ?? "";
+    const latencyMs = lastKeyTimeRef.current === null
+      ? null
+      : Math.max(Math.round(currentTimestamp - lastKeyTimeRef.current), 0);
     const nextText = `${typedText}${event.key}`.slice(0, promptChars);
     const nextIndex = nextText.length;
+    const typedChar = event.key;
+
+    setKeyHistory((current) => [...current, {
+      expectedChar,
+      typedChar,
+      correct: typedChar === expectedChar,
+      timestamp: currentTimestamp,
+      latencyMs,
+      heatmapKey: normalizeHeatmapKey(typedChar),
+      category: getKeyCategory(typedChar),
+    }]);
+    lastKeyTimeRef.current = currentTimestamp;
 
     setTypedText(nextText);
 
     if (nextIndex >= promptChars) {
-      completeRun(event.timeStamp);
+      completeRun(currentTimestamp);
     }
   };
 
@@ -515,104 +406,87 @@ export default function TypingBox() {
         </div>
       </div>
 
-      <div className="relative z-10 flex h-[calc(100%-5.5rem)] flex-col items-center justify-center px-2 py-4 sm:h-[calc(100%-6rem)] sm:px-4 sm:py-5">
-        <div
-          ref={timerRef}
-          className="font-mono text-[3.5rem] font-semibold tracking-[-0.08em] text-[#f0ab3c] drop-shadow-[0_0_18px_rgba(240,171,60,0.35)] sm:text-[4.5rem] lg:text-[5.15rem]"
-        >
-          {timeLeft}
-        </div>
+      <div className="relative z-10 h-[calc(100%-5.5rem)] px-2 py-4 sm:h-[calc(100%-6rem)] sm:px-4 sm:py-5">
+        {isComplete ? (
+          <TypingResultsView
+            wpm={wpm}
+            accuracy={accuracy}
+            grossWpm={grossWpm}
+            correctChars={correctChars}
+            typedChars={typedChars}
+            incorrectChars={incorrectChars}
+            duration={duration}
+            practiceMode={practiceMode}
+            heatmapByKey={heatmapByKey}
+            maxHeatLatencyMs={maxHeatLatencyMs}
+            burstSeries={burstSeries}
+            burstPolyline={burstPolyline}
+            slowestCategory={slowestCategory}
+          />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-start overflow-hidden pt-1 sm:pt-2">
+            <div
+              ref={timerRef}
+              className="font-mono text-[2.9rem] font-semibold tracking-[-0.08em] text-[#f0ab3c] drop-shadow-[0_0_18px_rgba(240,171,60,0.35)] sm:text-[3.7rem] lg:text-[4.25rem]"
+            >
+              {timeLeft}
+            </div>
 
-        <div
-          ref={textRef}
-          className="mt-7 w-full max-w-6xl rounded-[1.8rem] border border-white/6 bg-[linear-gradient(180deg,rgba(255,255,255,0.025),rgba(255,255,255,0.01))] px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:mt-8 sm:px-6 sm:py-6 lg:px-8"
-        >
-          <p
-            className={`flex flex-wrap gap-y-3 tracking-[-0.05em] ${
-              practiceMode === "code"
-                ? "font-mono text-[1.05rem] leading-[1.9] sm:text-[1.2rem] sm:leading-[2] lg:text-[1.4rem] lg:leading-[2.1]"
-                : "text-[1.45rem] leading-[1.7] sm:text-[1.8rem] sm:leading-[1.8] lg:text-[2.2rem] lg:leading-[1.85]"
-            }`}
-          >
-            {prompt.split("").map((char, index) => {
-              const typedChar = typedText[index];
-              const isCurrent = index === currentIndex && !isComplete;
-              let tone = "text-[#6b7280]";
+            <div
+              ref={textRef}
+              className="mt-5 w-full max-w-[82rem] rounded-[1.6rem] border border-white/6 bg-[linear-gradient(180deg,rgba(255,255,255,0.025),rgba(255,255,255,0.01))] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:mt-6 sm:px-5 sm:py-5 lg:px-6"
+            >
+              <p
+                className={`flex flex-wrap gap-y-3 tracking-[-0.05em] ${
+                  practiceMode === "code"
+                    ? "font-mono text-[0.95rem] leading-[1.75] sm:text-[1.08rem] sm:leading-[1.85] lg:text-[1.22rem] lg:leading-[1.95]"
+                    : "text-[1.2rem] leading-[1.55] sm:text-[1.45rem] sm:leading-[1.65] lg:text-[1.85rem] lg:leading-[1.72]"
+                }`}
+              >
+                {prompt.split("").map((char, index) => {
+                  const typedChar = typedText[index];
+                  const isCurrent = index === currentIndex && !isComplete;
+                  let tone = "text-[#6b7280]";
 
-              if (typedChar !== undefined) {
-                tone = typedChar === char ? "text-[#4ade80]" : "text-[#f87171]";
-              }
+                  if (typedChar !== undefined) {
+                    tone = typedChar === char ? "text-[#4ade80]" : "text-[#f87171]";
+                  }
 
-              return (
-                <span key={`${char}-${index}`} className="relative inline-flex items-center">
-                  {isCurrent ? (
-                    <span
-                      aria-hidden="true"
-                      className="mr-1 inline-block h-[1.1em] w-[3px] rounded-full bg-[#c98e4a] shadow-[0_0_18px_rgba(201,142,74,0.85)]"
-                    />
-                  ) : null}
-                  <span className={`${tone} ${char === " " ? "w-[0.38em]" : ""}`}>
-                    {char === " " ? "\u00A0" : char}
-                  </span>
-                </span>
-              );
-            })}
-          </p>
-        </div>
+                  return (
+                    <span key={`${char}-${index}`} className="relative inline-flex items-center">
+                      {isCurrent ? (
+                        <span
+                          aria-hidden="true"
+                          className="mr-1 inline-block h-[1.1em] w-[3px] rounded-full bg-[#c98e4a] shadow-[0_0_18px_rgba(201,142,74,0.85)]"
+                        />
+                      ) : null}
+                      <span className={`${tone} ${char === " " ? "w-[0.38em]" : ""}`}>
+                        {char === " " ? "\u00A0" : char}
+                      </span>
+                    </span>
+                  );
+                })}
+              </p>
+            </div>
 
-        <p
-          ref={hintRef}
-          className="mt-6 font-mono text-[0.78rem] uppercase tracking-[0.24em] text-[#666256] sm:mt-8 sm:text-[0.9rem]"
-        >
-          {isComplete ? "run complete. tap reset to go again." : "start typing to begin..."}
-        </p>
-
-        <div className="mt-6 grid w-full max-w-5xl gap-3 sm:mt-7 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-[1.6rem] border border-white/8 bg-white/[0.03] px-5 py-4">
-            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#8f816f]">
-              WPM
+            <p
+              ref={hintRef}
+              className="mt-5 font-mono text-[0.72rem] uppercase tracking-[0.24em] text-[#666256] sm:mt-6 sm:text-[0.82rem]"
+            >
+              start typing to begin...
             </p>
-            <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#f5efe6] sm:text-3xl">
-              {wpm}
-            </p>
-            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.22em] text-[#666256]">
-              Net speed from correct chars
-            </p>
+
+            <TypingStatsGrid
+              wpm={wpm}
+              accuracy={accuracy}
+              correctChars={correctChars}
+              typedChars={typedChars}
+              grossWpm={grossWpm}
+              progress={progress}
+              incorrectChars={incorrectChars}
+            />
           </div>
-          <div className="rounded-[1.6rem] border border-white/8 bg-white/[0.03] px-5 py-4">
-            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#8f816f]">
-              Accuracy
-            </p>
-            <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#f5efe6] sm:text-3xl">
-              {accuracy}%
-            </p>
-            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.22em] text-[#666256]">
-              {correctChars} correct / {typedChars} typed
-            </p>
-          </div>
-          <div className="rounded-[1.6rem] border border-white/8 bg-white/[0.03] px-5 py-4">
-            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#8f816f]">
-              Raw WPM
-            </p>
-            <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#f5efe6] sm:text-3xl">
-              {grossWpm}
-            </p>
-            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.22em] text-[#666256]">
-              Speed before error penalty
-            </p>
-          </div>
-          <div className="rounded-[1.6rem] border border-white/8 bg-white/[0.03] px-5 py-4">
-            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#8f816f]">
-              Progress
-            </p>
-            <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#f5efe6] sm:text-3xl">
-              {progress}%
-            </p>
-            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.22em] text-[#666256]">
-              {incorrectChars} incorrect chars
-            </p>
-          </div>
-        </div>
+        )}
       </div>
     </section>
   );
