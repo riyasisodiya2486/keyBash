@@ -19,12 +19,14 @@ type BurstPoint = {
 type TypingResultsViewProps = {
   wpm: number;
   accuracy: number;
+  timeTakenSeconds: number;
   grossWpm: number;
   correctChars: number;
   typedChars: number;
   incorrectChars: number;
   duration: number;
   practiceMode: PracticeMode;
+  onRestart: () => void;
   heatmapByKey: Record<string, HeatmapSummary>;
   maxHeatLatencyMs: number;
   burstSeries: BurstPoint[];
@@ -38,12 +40,14 @@ type TypingResultsViewProps = {
 export default function TypingResultsView({
   wpm,
   accuracy,
+  timeTakenSeconds,
   grossWpm,
   correctChars,
   typedChars,
   incorrectChars,
   duration,
   practiceMode,
+  onRestart,
   heatmapByKey,
   maxHeatLatencyMs,
   burstSeries,
@@ -58,23 +62,44 @@ export default function TypingResultsView({
 
     return best;
   }, null);
+  const timeTakenLabel = `${timeTakenSeconds.toFixed(1)}s`;
 
   return (
     <div className="minimal-scrollbar flex h-full min-h-0 w-full flex-col gap-4 overflow-y-auto pr-1">
       <section className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.65fr)]">
         <div className="rounded-[2rem] border border-white/8 bg-[linear-gradient(180deg,rgba(17,22,29,0.84),rgba(12,15,21,0.92))] px-6 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-[#7d7468]">results</p>
-          <div className="mt-5 grid grid-cols-2 gap-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#666256]">wpm</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-[#7d7468]">results</p>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-[#bcb4a7]">
+                Final WPM, final accuracy, and the total time from this run.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onRestart}
+              className="rounded-full bg-[#f0ab3c] px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.22em] text-[#16120d] transition hover:bg-[#f7c861]"
+            >
+              Restart test
+            </button>
+          </div>
+          <div className="mt-5 grid gap-6 sm:grid-cols-3">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#666256]">final wpm</p>
               <p className="mt-2 text-[4.4rem] font-semibold leading-none tracking-[-0.09em] text-[#f0ab3c]">
                 {wpm}
               </p>
             </div>
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#666256]">accuracy</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#666256]">final accuracy</p>
               <p className="mt-2 text-[4.4rem] font-semibold leading-none tracking-[-0.09em] text-[#f0ab3c]">
                 {accuracy}%
+              </p>
+            </div>
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#666256]">time taken</p>
+              <p className="mt-2 text-[4.4rem] font-semibold leading-none tracking-[-0.09em] text-[#f0ab3c]">
+                {timeTakenLabel}
               </p>
             </div>
           </div>

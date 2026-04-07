@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import gsap from "gsap";
+import { generateText } from "@/utils/generateText";
 
 import {
   buildBurstSeries,
@@ -15,7 +16,6 @@ import {
   getSlowestCategory,
   normalizeHeatmapKey,
 } from "./analytics";
-import { buildPrompt } from "./config";
 import TypingResultsView from "./TypingResultsView";
 import TypingStatsGrid from "./TypingStatsGrid";
 import {
@@ -33,7 +33,7 @@ export default function TypingBox() {
   const [practiceMode, setPracticeMode] = useState<PracticeMode>("words");
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
   const [duration, setDuration] = useState<15 | 30 | 60>(30);
-  const [prompt, setPrompt] = useState(() => buildPrompt("easy", "words"));
+  const [prompt, setPrompt] = useState(() => generateText("words", "easy"));
   const [typedText, setTypedText] = useState("");
   const [timeLeft, setTimeLeft] = useState(30);
   const [hasStarted, setHasStarted] = useState(false);
@@ -118,6 +118,8 @@ export default function TypingBox() {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
+        setElapsedMs(duration * 1000);
+        setTimeLeft(0);
         setIsComplete(true);
       }
     }, 100);
@@ -165,7 +167,10 @@ export default function TypingBox() {
   const slowestCategory = getSlowestCategory(keyHistory);
   const { burstSeries, burstPolyline } = buildBurstSeries(keyHistory, elapsedMs, startTime);
 
-  const resetSession = (nextPrompt = buildPrompt(difficulty, practiceMode), nextTimeLeft = duration) => {
+  const resetSession = (
+    nextPrompt = generateText(practiceMode, difficulty),
+    nextTimeLeft = duration,
+  ) => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -189,28 +194,33 @@ export default function TypingBox() {
 
   const handlePracticeModeChange = (nextMode: PracticeMode) => {
     setPracticeMode(nextMode);
-    resetSession(buildPrompt(difficulty, nextMode));
+    resetSession(generateText(nextMode, difficulty));
   };
 
   const handleDifficultyChange = (nextDifficulty: Difficulty) => {
     setDifficulty(nextDifficulty);
-    resetSession(buildPrompt(nextDifficulty, practiceMode));
+    resetSession(generateText(practiceMode, nextDifficulty));
   };
 
   const handleDurationChange = (nextDuration: 15 | 30 | 60) => {
     setDuration(nextDuration);
-    resetSession(buildPrompt(difficulty, practiceMode), nextDuration);
+    resetSession(generateText(practiceMode, difficulty), nextDuration);
   };
 
-  const completeRun = (completedAt = startTime) => {
+  const completeRun = (completedAt = startTime, explicitElapsedMs?: number) => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
 
-    if (startTime !== null && completedAt !== null) {
-      setElapsedMs(completedAt - startTime);
-      setTimeLeft((current) => Math.max(current, 0));
+    if (explicitElapsedMs !== undefined) {
+      const boundedElapsedMs = Math.max(explicitElapsedMs, 0);
+      setElapsedMs(boundedElapsedMs);
+      setTimeLeft(Math.max(duration - Math.ceil(boundedElapsedMs / 1000), 0));
+    } else if (startTime !== null && completedAt !== null) {
+      const boundedElapsedMs = Math.max(completedAt - startTime, 0);
+      setElapsedMs(boundedElapsedMs);
+      setTimeLeft(Math.max(duration - Math.ceil(boundedElapsedMs / 1000), 0));
     }
 
     setIsComplete(true);
@@ -411,12 +421,14 @@ export default function TypingBox() {
           <TypingResultsView
             wpm={wpm}
             accuracy={accuracy}
+            timeTakenSeconds={elapsedMs / 1000}
             grossWpm={grossWpm}
             correctChars={correctChars}
             typedChars={typedChars}
             incorrectChars={incorrectChars}
             duration={duration}
             practiceMode={practiceMode}
+            onRestart={handleReset}
             heatmapByKey={heatmapByKey}
             maxHeatLatencyMs={maxHeatLatencyMs}
             burstSeries={burstSeries}
