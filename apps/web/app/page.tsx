@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useRef } from "react";
+import gsap from "gsap";
 import { Navbar } from "@/components/Navbar";
 import RotatingWord from "@/components/ui/RotatingWord";
 
@@ -60,39 +64,144 @@ function RaceLane({
         {wpm}
       </p>
       <div className="mt-5 h-2 rounded-full bg-white/10">
-        <div className={`h-full rounded-full ${tone}`} style={{ width: progress }} />
+        <div
+          className={`lane-fill h-full rounded-full ${tone}`}
+          style={{ width: progress, transform: "scaleX(0)" }}
+        />
       </div>
     </div>
   );
 }
 
 export default function Home() {
+  const pageRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.set(".hero-reveal", { autoAlpha: 0, y: 40 });
+      gsap.set(".hero-visual", { autoAlpha: 0, y: 56, scale: 0.96 });
+      gsap.set(".panel-reveal", { autoAlpha: 0, y: 60 });
+      gsap.set(".chart-bar", {
+        autoAlpha: 0,
+        scaleY: 0.2,
+        transformOrigin: "bottom center",
+      });
+      gsap.set(".leader-row", { autoAlpha: 0, x: 24 });
+
+      gsap.to(".hero-reveal", {
+        autoAlpha: 1,
+        y: 0,
+        duration: 0.95,
+        stagger: 0.1,
+        ease: "power3.out",
+        delay: 0.18,
+      });
+
+      gsap.to(".hero-visual", {
+        autoAlpha: 1,
+        y: 0,
+        scale: 1,
+        duration: 1.15,
+        ease: "power3.out",
+        delay: 0.34,
+      });
+
+      gsap.to(".panel-reveal", {
+        autoAlpha: 1,
+        y: 0,
+        duration: 1,
+        stagger: 0.12,
+        ease: "power3.out",
+        delay: 0.5,
+      });
+
+      gsap.to(".lane-fill", {
+        scaleX: 1,
+        duration: 1.2,
+        stagger: 0.12,
+        ease: "power3.out",
+        delay: 0.72,
+        transformOrigin: "left center",
+      });
+
+      gsap.to(".chart-bar", {
+        autoAlpha: 1,
+        scaleY: 1,
+        duration: 0.9,
+        stagger: 0.08,
+        ease: "back.out(1.5)",
+        delay: 0.88,
+      });
+
+      gsap.to(".leader-row", {
+        autoAlpha: 1,
+        x: 0,
+        duration: 0.7,
+        stagger: 0.1,
+        ease: "power3.out",
+        delay: 0.86,
+      });
+
+      gsap.to(".float-orb", {
+        y: -18,
+        x: 10,
+        duration: 5,
+        repeat: -1,
+        yoyo: true,
+        ease: "sine.inOut",
+        stagger: 0.6,
+      });
+
+      gsap.to(".floating-card", {
+        y: -10,
+        duration: 3.2,
+        repeat: -1,
+        yoyo: true,
+        ease: "sine.inOut",
+        stagger: 0.2,
+      });
+
+      gsap.to(".prompt-pill", {
+        y: -4,
+        duration: 1.4,
+        repeat: -1,
+        yoyo: true,
+        ease: "sine.inOut",
+        stagger: 0.08,
+      });
+    }, pageRef);
+
+    return () => ctx.revert();
+  }, []);
+
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0d1117] text-[#f5efe6]">
+    <div ref={pageRef} className="relative min-h-screen overflow-hidden bg-[#0d1117] text-[#f5efe6]">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,_rgba(201,142,74,0.2),_transparent_26%),radial-gradient(circle_at_88%_14%,_rgba(255,255,255,0.06),_transparent_18%),linear-gradient(180deg,_rgba(14,17,23,0.98),_rgba(8,10,14,1))]" />
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(245,239,230,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(245,239,230,0.04)_1px,transparent_1px)] bg-[size:72px_72px] opacity-30" />
-      <div className="absolute left-[6%] top-24 h-56 w-56 rounded-full bg-[#d7b384]/16 blur-3xl" />
-      <div className="absolute right-[8%] top-24 h-72 w-72 rounded-full bg-[#c98e4a]/12 blur-3xl" />
+      <div className="landing-grid-drift absolute inset-0 bg-[linear-gradient(to_right,rgba(245,239,230,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(245,239,230,0.04)_1px,transparent_1px)] bg-[size:72px_72px] opacity-30" />
+      <div className="float-orb absolute left-[6%] top-24 h-56 w-56 rounded-full bg-[#d7b384]/16 blur-3xl" />
+      <div className="float-orb absolute right-[8%] top-24 h-72 w-72 rounded-full bg-[#c98e4a]/12 blur-3xl" />
+      <div className="float-orb absolute bottom-24 left-[28%] h-64 w-64 rounded-full bg-white/[0.04] blur-3xl" />
       <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-white/[0.05] to-transparent" />
+      <div className="landing-scanline pointer-events-none absolute inset-x-0 top-[18vh] h-px bg-gradient-to-r from-transparent via-[#c98e4a]/50 to-transparent opacity-70" />
 
       <Navbar />
 
       <main className="relative z-10 mx-auto max-w-7xl px-4 pb-24 pt-14 sm:px-6 lg:px-10">
         <section className="grid min-h-[calc(100vh-140px)] items-center gap-16 lg:grid-cols-[1.02fr_0.98fr]">
           <div className="max-w-5xl">
-            <div className="inline-flex items-center gap-3 rounded-full border border-white/8 bg-white/[0.05] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.28em] text-[#8f816f] shadow-[0_12px_30px_rgba(0,0,0,0.14)]">
+            <div className="hero-reveal hero-chip inline-flex items-center gap-3 rounded-full border border-white/8 bg-white/[0.05] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.28em] text-[#8f816f] shadow-[0_12px_30px_rgba(0,0,0,0.14)]">
               <span className="h-2 w-2 rounded-full bg-[#c98e4a]" />
               Competitive typing arena
             </div>
 
-            <h1 className="mt-8 max-w-5xl text-5xl font-semibold leading-[0.9] tracking-[-0.065em] text-[#f5efe6] sm:text-6xl lg:text-[6.6rem]">
+            <h1 className="hero-reveal mt-8 max-w-5xl text-5xl font-semibold leading-[0.9] tracking-[-0.065em] text-[#f5efe6] sm:text-6xl lg:text-[6.6rem]">
               Enter the pressure.
               <span className="mt-2 block">
                 Chase every <RotatingWord />
               </span>
             </h1>
 
-            <div className="mt-10 flex flex-col gap-4 sm:flex-row">
+            <div className="hero-reveal mt-10 flex flex-col gap-4 sm:flex-row">
               <Link
                 href="/sign-in"
                 className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.05] px-6 py-4 font-mono text-[11px] uppercase tracking-[0.26em] text-[#f5efe6] transition hover:bg-white/[0.09]"
@@ -113,17 +222,19 @@ export default function Home() {
               </Link>
             </div>
 
-            <div className="mt-12 grid gap-4 sm:grid-cols-3">
+            <div className="hero-reveal mt-12 grid gap-4 sm:grid-cols-3">
               {stats.map((stat) => (
-                <MetricCard key={stat.label} label={stat.label} value={stat.value} />
+                <div key={stat.label} className="floating-card">
+                  <MetricCard label={stat.label} value={stat.value} />
+                </div>
               ))}
             </div>
 
-            <div className="mt-12 grid gap-3 sm:grid-cols-3">
+            <div className="hero-reveal mt-12 grid gap-3 sm:grid-cols-3">
               {modes.map((mode) => (
                 <div
                   key={mode.label}
-                  className="rounded-[1.8rem] border border-white/8 bg-white/[0.04] p-4 shadow-[0_14px_35px_rgba(0,0,0,0.14)]"
+                  className="floating-card rounded-[1.8rem] border border-white/8 bg-white/[0.04] p-4 shadow-[0_14px_35px_rgba(0,0,0,0.14)]"
                 >
                   <span className={`inline-flex rounded-full px-3 py-1 font-mono text-[10px] uppercase tracking-[0.22em] ${mode.accent}`}>
                     {mode.label}
@@ -137,7 +248,8 @@ export default function Home() {
           </div>
 
           <div className="lg:pl-8">
-            <div className="relative overflow-hidden rounded-[2.6rem] border border-white/8 bg-white/[0.05] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.2)] backdrop-blur-2xl">
+            <div className="hero-visual relative overflow-hidden rounded-[2.6rem] border border-white/8 bg-white/[0.05] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.2)] backdrop-blur-2xl">
+              <div className="card-shimmer pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_36%)]" />
               <div className="absolute inset-x-6 top-24 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
               <div className="flex items-start justify-between">
                 <div>
@@ -166,7 +278,7 @@ export default function Home() {
                   {promptWords.map((word, index) => (
                     <span
                       key={word}
-                      className={`rounded-xl px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] ${
+                      className={`prompt-pill rounded-xl px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] ${
                         index < 4
                           ? "bg-[#f5efe6] text-[#16120d]"
                           : "bg-white/[0.06] text-[#8f816f]"
@@ -185,7 +297,7 @@ export default function Home() {
                   progress="78%"
                   tone="bg-[#f5efe6]"
                 />
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-[#c98e4a]/20 bg-[#c98e4a]/10 font-mono text-[11px] uppercase tracking-[0.22em] text-[#d7b384]">
+                <div className="score-pulse mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-[#c98e4a]/20 bg-[#c98e4a]/10 font-mono text-[11px] uppercase tracking-[0.22em] text-[#d7b384]">
                   VS
                 </div>
                 <RaceLane
@@ -206,7 +318,8 @@ export default function Home() {
         </section>
 
         <section className="mt-8 grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-[2.4rem] border border-white/8 bg-white/[0.05] p-8 shadow-[0_20px_60px_rgba(0,0,0,0.16)]">
+          <div className="panel-reveal relative overflow-hidden rounded-[2.4rem] border border-white/8 bg-white/[0.05] p-8 shadow-[0_20px_60px_rgba(0,0,0,0.16)]">
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-40 bg-gradient-to-l from-[#c98e4a]/10 to-transparent" />
             <div className="flex items-end justify-between gap-6">
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#8f816f]">
@@ -222,7 +335,7 @@ export default function Home() {
             </div>
 
             <div className="mt-8 grid gap-4 md:grid-cols-[0.9fr_1.1fr]">
-              <div className="rounded-[1.8rem] border border-white/8 bg-[#f5efe6] p-6 text-[#16120d]">
+              <div className="floating-card rounded-[1.8rem] border border-white/8 bg-[#f5efe6] p-6 text-[#16120d]">
                 <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#8f816f]">
                   Personal best
                 </p>
@@ -239,7 +352,7 @@ export default function Home() {
                   {[28, 44, 36, 58, 54, 72, 68].map((height, index) => (
                     <div key={height} className="flex-1">
                       <div
-                        className={`w-full rounded-full ${
+                        className={`chart-bar w-full rounded-full ${
                           index === 6 ? "bg-[#c98e4a]" : "bg-white/70"
                         }`}
                         style={{ height: `${height * 1.6}px` }}
@@ -255,7 +368,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="rounded-[2.4rem] border border-white/8 bg-[#f5efe6] p-8 text-[#16120d] shadow-[0_20px_60px_rgba(0,0,0,0.12)]">
+          <div className="panel-reveal rounded-[2.4rem] border border-white/8 bg-[#f5efe6] p-8 text-[#16120d] shadow-[0_20px_60px_rgba(0,0,0,0.12)]">
             <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#8f816f]">
               Leaderboard
             </p>
@@ -266,7 +379,7 @@ export default function Home() {
               {leaderboard.map((player, index) => (
                 <div
                   key={player.rank}
-                  className={`flex items-center justify-between rounded-[1.5rem] border px-5 py-4 ${
+                  className={`leader-row flex items-center justify-between rounded-[1.5rem] border px-5 py-4 ${
                     index === 0
                       ? "border-[#c98e4a]/30 bg-[#16120d] text-[#f5efe6]"
                       : "border-black/8 bg-[#ebe4d8]"

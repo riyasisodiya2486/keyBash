@@ -10,6 +10,26 @@ body {
   color: #f5efe6;
 }
 
+.landing-grid-drift {
+  animation: landing-grid-drift 18s linear infinite;
+}
+
+.landing-scanline {
+  animation: landing-scanline 7s ease-in-out infinite;
+}
+
+.card-shimmer {
+  animation: card-shimmer 6s ease-in-out infinite;
+}
+
+.score-pulse {
+  animation: score-pulse 2.8s ease-in-out infinite;
+}
+
+.hero-chip {
+  animation: hero-chip-glow 3.4s ease-in-out infinite;
+}
+
 .minimal-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(240, 171, 60, 0.28) transparent;
@@ -59,6 +79,63 @@ body {
     }
     100% {
       opacity: 0.4;
+    }
+  }
+
+  @keyframes landing-grid-drift {
+    0% {
+      transform: translate3d(0, 0, 0);
+    }
+    100% {
+      transform: translate3d(-72px, -72px, 0);
+    }
+  }
+
+  @keyframes landing-scanline {
+    0%,
+    100% {
+      transform: translateY(-16px);
+      opacity: 0.2;
+    }
+    50% {
+      transform: translateY(24px);
+      opacity: 0.9;
+    }
+  }
+
+  @keyframes card-shimmer {
+    0%,
+    100% {
+      opacity: 0.18;
+      transform: translateX(-8%);
+    }
+    50% {
+      opacity: 0.4;
+      transform: translateX(8%);
+    }
+  }
+
+  @keyframes score-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(201, 142, 74, 0.08);
+    }
+    50% {
+      transform: scale(1.04);
+      box-shadow: 0 0 0 12px rgba(201, 142, 74, 0);
+    }
+  }
+
+  @keyframes hero-chip-glow {
+    0%,
+    100% {
+      border-color: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
+    }
+    50% {
+      border-color: rgba(201, 142, 74, 0.28);
+      box-shadow: 0 16px 38px rgba(201, 142, 74, 0.1);
     }
   }
 }
