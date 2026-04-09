@@ -6,6 +6,7 @@ export const durationOptions = [15, 30, 60] as const;
 
 export type Difficulty = (typeof difficultyOptions)[number];
 export type PracticeMode = (typeof practiceModes)[number];
+export type TypingDuration = (typeof durationOptions)[number];
 export type KeyCategory = "letter" | "capital" | "number" | "symbol" | "space";
 
 export type KeyPressSample = {
@@ -22,4 +23,3 @@ export type HeatmapSummary = {
   count: number;
   averageLatencyMs: number | null;
 };
-

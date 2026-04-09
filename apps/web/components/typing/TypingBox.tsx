@@ -1,21 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
+import { useEffect, useRef } from "react";
 import gsap from "gsap";
-import { generateText } from "@/utils/generateText";
+import { useTyping } from "@/hooks/useTyping";
 
-import {
-  buildBurstSeries,
-  buildHeatmapByKey,
-  calculateGrossWpm,
-  calculateNetWpm,
-  clampPercentage,
-  getKeyCategory,
-  getMaxHeatLatencyMs,
-  getSlowestCategory,
-  normalizeHeatmapKey,
-} from "./analytics";
 import TypingResultsView from "./TypingResultsView";
 import TypingStatsGrid from "./TypingStatsGrid";
 import {
@@ -23,25 +11,8 @@ import {
   durationOptions,
   practiceModes,
 } from "./types";
-import type {
-  Difficulty,
-  KeyPressSample,
-  PracticeMode,
-} from "./types";
 
 export default function TypingBox() {
-  const [practiceMode, setPracticeMode] = useState<PracticeMode>("words");
-  const [difficulty, setDifficulty] = useState<Difficulty>("easy");
-  const [duration, setDuration] = useState<15 | 30 | 60>(30);
-  const [prompt, setPrompt] = useState(() => generateText("words", "easy"));
-  const [typedText, setTypedText] = useState("");
-  const [timeLeft, setTimeLeft] = useState(30);
-  const [hasStarted, setHasStarted] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
-  const [startTime, setStartTime] = useState<number | null>(null);
-  const [elapsedMs, setElapsedMs] = useState(0);
-  const [keyHistory, setKeyHistory] = useState<KeyPressSample[]>([]);
-
   const shellRef = useRef<HTMLDivElement | null>(null);
   const topBarRef = useRef<HTMLDivElement | null>(null);
   const timerRef = useRef<HTMLDivElement | null>(null);
@@ -51,11 +22,38 @@ export default function TypingBox() {
   const cursorRef = useRef<HTMLSpanElement | null>(null);
   const hintRef = useRef<HTMLParagraphElement | null>(null);
   const liveContentRef = useRef<HTMLDivElement | null>(null);
-  const ghostInputRef = useRef<HTMLInputElement | null>(null);
   const orbsRef = useRef<Array<HTMLDivElement | null>>([]);
   const charRefs = useRef<Array<HTMLSpanElement | null>>([]);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastKeyTimeRef = useRef<number | null>(null);
+  const {
+    accuracy,
+    burstPolyline,
+    burstSeries,
+    correctChars,
+    currentIndex,
+    difficulty,
+    duration,
+    elapsedMs,
+    ghostInputRef,
+    grossWpm,
+    handleDifficultyChange,
+    handleDurationChange,
+    handleKeyDown,
+    handlePracticeModeChange,
+    handleReset,
+    hasStarted,
+    heatmapByKey,
+    incorrectChars,
+    isComplete,
+    maxHeatLatencyMs,
+    practiceMode,
+    progress,
+    prompt,
+    slowestCategory,
+    timeLeft,
+    typedChars,
+    typedText,
+    wpm,
+  } = useTyping();
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -131,40 +129,6 @@ export default function TypingBox() {
   }, [typedText.length, isComplete]);
 
   useEffect(() => {
-    if (!hasStarted || isComplete || startTime === null) {
-      return;
-    }
-
-    intervalRef.current = setInterval(() => {
-      const nextElapsedMs = performance.now() - startTime;
-      const remainingSeconds = Math.max(
-        duration - Math.floor(nextElapsedMs / 1000),
-        0,
-      );
-
-      setElapsedMs(nextElapsedMs);
-      setTimeLeft(remainingSeconds);
-
-      if (remainingSeconds === 0) {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        setElapsedMs(duration * 1000);
-        setTimeLeft(0);
-        setIsComplete(true);
-      }
-    }, 100);
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [duration, hasStarted, isComplete, startTime]);
-
-  useEffect(() => {
     if (!timerRef.current) {
       return;
     }
@@ -177,27 +141,8 @@ export default function TypingBox() {
   }, [timeLeft]);
 
   useEffect(() => {
-    ghostInputRef.current?.focus();
-  }, []);
-
-  const currentIndex = typedText.length;
-  const typedChars = typedText.length;
-  const promptChars = prompt.length;
-  const correctChars = typedText.split("").filter((char, index) => char === prompt[index]).length;
-  const incorrectChars = typedChars - correctChars;
-  const elapsedMinutes = elapsedMs > 0 ? elapsedMs / 60000 : 0;
-  const accuracy = typedChars > 0
-    ? Math.round(clampPercentage((correctChars / typedChars) * 100))
-    : 100;
-  const grossWpm = calculateGrossWpm(typedChars, elapsedMinutes);
-  const wpm = calculateNetWpm(correctChars, elapsedMinutes);
-  const progress = promptChars > 0
-    ? Math.round(clampPercentage((typedChars / promptChars) * 100))
-    : 0;
-  const heatmapByKey = buildHeatmapByKey(keyHistory);
-  const maxHeatLatencyMs = getMaxHeatLatencyMs(heatmapByKey);
-  const slowestCategory = getSlowestCategory(keyHistory);
-  const { burstSeries, burstPolyline } = buildBurstSeries(keyHistory, elapsedMs, startTime);
+    charRefs.current = [];
+  }, [prompt]);
 
   const triggerKeyFeedback = (isCorrect: boolean, charIndex: number) => {
     const flashNode = feedbackFlashRef.current;
@@ -272,164 +217,6 @@ export default function TypingBox() {
     }
   };
 
-  const resetSession = useCallback((
-    nextPrompt = generateText(practiceMode, difficulty),
-    nextTimeLeft = duration,
-  ) => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    setPrompt(nextPrompt);
-    setTypedText("");
-    setTimeLeft(nextTimeLeft);
-    setHasStarted(false);
-    setIsComplete(false);
-    setStartTime(null);
-    setElapsedMs(0);
-    setKeyHistory([]);
-    charRefs.current = [];
-    lastKeyTimeRef.current = null;
-    ghostInputRef.current?.focus();
-  }, [difficulty, duration, practiceMode]);
-
-  const handleReset = () => {
-    resetSession();
-  };
-
-  useEffect(() => {
-    if (!isComplete) {
-      return;
-    }
-
-    const handleWindowKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Enter") {
-        return;
-      }
-
-      event.preventDefault();
-      resetSession();
-    };
-
-    window.addEventListener("keydown", handleWindowKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleWindowKeyDown);
-    };
-  }, [isComplete, resetSession]);
-
-  const handlePracticeModeChange = (nextMode: PracticeMode) => {
-    setPracticeMode(nextMode);
-    resetSession(generateText(nextMode, difficulty));
-  };
-
-  const handleDifficultyChange = (nextDifficulty: Difficulty) => {
-    setDifficulty(nextDifficulty);
-    resetSession(generateText(practiceMode, nextDifficulty));
-  };
-
-  const handleDurationChange = (nextDuration: 15 | 30 | 60) => {
-    setDuration(nextDuration);
-    resetSession(generateText(practiceMode, difficulty), nextDuration);
-  };
-
-  const completeRun = (completedAt = startTime, explicitElapsedMs?: number) => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    if (explicitElapsedMs !== undefined) {
-      const boundedElapsedMs = Math.max(explicitElapsedMs, 0);
-      setElapsedMs(boundedElapsedMs);
-      setTimeLeft(Math.max(duration - Math.ceil(boundedElapsedMs / 1000), 0));
-    } else if (startTime !== null && completedAt !== null) {
-      const boundedElapsedMs = Math.max(completedAt - startTime, 0);
-      setElapsedMs(boundedElapsedMs);
-      setTimeLeft(Math.max(duration - Math.ceil(boundedElapsedMs / 1000), 0));
-    }
-
-    setIsComplete(true);
-  };
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      handleReset();
-      return;
-    }
-
-    if (isComplete) {
-      return;
-    }
-
-    if (event.key === "Tab") {
-      event.preventDefault();
-      ghostInputRef.current?.focus();
-      return;
-    }
-
-    if (event.key === "Backspace") {
-      event.preventDefault();
-
-      if (typedText.length === 0) {
-        return;
-      }
-
-      setTypedText((current) => current.slice(0, -1));
-      return;
-    }
-
-    if (event.key.length !== 1 || event.ctrlKey || event.metaKey || event.altKey) {
-      return;
-    }
-
-    event.preventDefault();
-
-    if (!hasStarted) {
-      const nextStartTime = event.timeStamp;
-      setHasStarted(true);
-      setStartTime(nextStartTime);
-      setElapsedMs(0);
-      lastKeyTimeRef.current = nextStartTime;
-    }
-
-    if (currentIndex >= promptChars) {
-      completeRun(event.timeStamp);
-      return;
-    }
-
-    const currentTimestamp = event.timeStamp;
-    const expectedChar = prompt[currentIndex] ?? "";
-    const latencyMs = lastKeyTimeRef.current === null
-      ? null
-      : Math.max(Math.round(currentTimestamp - lastKeyTimeRef.current), 0);
-    const nextText = `${typedText}${event.key}`.slice(0, promptChars);
-    const nextIndex = nextText.length;
-    const typedChar = event.key;
-    const isCorrect = typedChar === expectedChar;
-
-    triggerKeyFeedback(isCorrect, currentIndex);
-
-    setKeyHistory((current) => [...current, {
-      expectedChar,
-      typedChar,
-      correct: isCorrect,
-      timestamp: currentTimestamp,
-      latencyMs,
-      heatmapKey: normalizeHeatmapKey(typedChar),
-      category: getKeyCategory(typedChar),
-    }]);
-    lastKeyTimeRef.current = currentTimestamp;
-
-    setTypedText(nextText);
-
-    if (nextIndex >= promptChars) {
-      completeRun(currentTimestamp);
-    }
-  };
-
   return (
     <section
       ref={shellRef}
@@ -460,7 +247,7 @@ export default function TypingBox() {
       <input
         ref={ghostInputRef}
         value={typedText}
-        onKeyDown={handleKeyDown}
+        onKeyDown={(event) => handleKeyDown(event, triggerKeyFeedback)}
         onChange={() => {}}
         className="pointer-events-none absolute opacity-0"
         autoCapitalize="off"
