@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import { useSocket } from "@/hooks/useSocket";
 import gsap from "gsap";
 import { Navbar } from "@/components/Navbar";
 import RotatingWord from "@/components/ui/RotatingWord";
@@ -75,6 +76,20 @@ function RaceLane({
 
 export default function Home() {
   const pageRef = useRef<HTMLDivElement | null>(null);
+
+  // Connect to socket server
+  const socket = useSocket("http://localhost:5001");
+
+  useEffect(() => {
+    if (socket) {
+      socket.on("connect", () => {
+        console.log("Socket connected!", socket.id);
+      });
+      return () => {
+        socket.off("connect");
+      };
+    }
+  }, [socket]);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
