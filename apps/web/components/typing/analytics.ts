@@ -204,6 +204,20 @@ export function getSlowestCategory(keyHistory: KeyPressSample[]) {
     .sort((first, second) => second.averageLatencyMs - first.averageLatencyMs)[0] ?? null;
 }
 
+type BurstPoint = {
+  index: number;
+  typedChars: number;
+  correctChars: number;
+  latencyTotal: number;
+  latencyCount: number;
+  capitals: number;
+  symbols: number;
+  label: string;
+  bucketWpm: number;
+  averageLatencyMs: number | null;
+  slowdownSource: "symbols" | "capitals" | "mixed";
+};
+
 export function buildBurstSeries(keyHistory: KeyPressSample[], elapsedMs: number, startTime: number | null) {
   const burstWindowMs = elapsedMs > 0 ? Math.max(1500, Math.round(elapsedMs / 6)) : 2000;
   const burstBucketCount = elapsedMs > 0 ? Math.max(1, Math.ceil(elapsedMs / burstWindowMs)) : 0;
@@ -250,7 +264,7 @@ export function buildBurstSeries(keyHistory: KeyPressSample[], elapsedMs: number
     });
   }
 
-  const burstSeries = burstBuckets.map((bucket) => {
+  const burstSeries = burstBuckets.map<BurstPoint>((bucket) => {
     const bucketStart = bucket.index * burstWindowMs;
     const remainingDuration = Math.max(elapsedMs - bucketStart, 0);
     const bucketDurationMs = Math.min(burstWindowMs, remainingDuration || burstWindowMs);

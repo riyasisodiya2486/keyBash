@@ -38,7 +38,7 @@ export function useTyping({
   const [duration, setDuration] = useState<TypingDuration>(defaultDuration);
   const [prompt, setPrompt] = useState(() => generateText(defaultPracticeMode, defaultDifficulty));
   const [typedText, setTypedText] = useState("");
-  const [timeLeft, setTimeLeft] = useState(defaultDuration);
+  const [timeLeft, setTimeLeft] = useState<number>(defaultDuration);
   const [hasStarted, setHasStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);

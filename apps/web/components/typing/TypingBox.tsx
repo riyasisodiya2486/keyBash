@@ -125,7 +125,9 @@ export default function TypingBox() {
       },
     );
 
-    return () => tween.kill();
+    return () => {
+      tween.kill();
+    };
   }, [typedText.length, isComplete]);
 
   useEffect(() => {
